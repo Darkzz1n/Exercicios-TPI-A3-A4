@@ -1,0 +1,6 @@
+groq
+openai
+python-dotenv
+PyMuPDF
+sentence-transformers
+chromadb
