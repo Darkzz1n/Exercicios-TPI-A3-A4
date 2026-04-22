@@ -6,10 +6,10 @@ from dotenv import load_dotenv
 from groq import Groq
 from sentence_transformers import SentenceTransformer
 
-# Carrega variáveis de ambiente (sua chave de API no .env)
+# Carrega variáveis de ambiente
 load_dotenv()
 
-# Inicializa os clientes de IA
+# Inicializa IA e o modelo Multilíngue (melhor para português)
 ia_client = Groq()
 gerador_embeddings = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
 
@@ -18,31 +18,36 @@ gerador_embeddings = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2"
 # =====================================================
 
 def calcular_similaridade(vetor_a, vetor_b):
-    """Calcula a similaridade do cosseno entre dois vetores."""
     produto_escalar = np.dot(vetor_a, vetor_b)
     norma_a = np.linalg.norm(vetor_a)
     norma_b = np.linalg.norm(vetor_b)
     return produto_escalar / (norma_a * norma_b)
 
 def ler_arquivo_txt(caminho_arquivo):
-    """Lê o conteúdo de um arquivo de texto."""
     with open(caminho_arquivo, "r", encoding="utf-8") as arquivo:
         return arquivo.read()
 
 def ler_arquivo_pdf(caminho_arquivo):
-    """Extrai todo o texto de um arquivo PDF."""
     texto_completo = ""
-    documento = fitz.open(caminho_arquivo)
-    for pagina in documento:
-        texto_completo += pagina.get_text()
-    return texto_completo
+    try:
+        documento = fitz.open(caminho_arquivo)
+        for pagina in documento:
+            texto_completo += pagina.get_text()
+        return texto_completo
+    except Exception as e:
+        return f"Erro ao ler PDF: {e}"
 
-def criar_chunks(texto, tamanho_maximo=500):
-    """Divide um texto longo em pedaços menores (chunks)."""
+def criar_chunks(texto, tamanho_maximo=500, sobreposicao=50):
+    """Divide um texto longo em pedaços menores com sobreposição."""
     lista_chunks = []
-    for i in range(0, len(texto), tamanho_maximo):
+    passo = tamanho_maximo - sobreposicao
+    
+    for i in range(0, len(texto), passo):
         pedaco = texto[i : i + tamanho_maximo]
         lista_chunks.append(pedaco)
+        if i + tamanho_maximo >= len(texto):
+            break
+            
     return lista_chunks
 
 # =====================================================
@@ -51,8 +56,8 @@ def criar_chunks(texto, tamanho_maximo=500):
 
 def exercicio_1_e_2_ler_txt():
     print("\n--- EXTRAÇÃO E CHUNKING DE TXT ---")
-    texto_txt = ler_arquivo_txt("docs/regulamento_empresa_base_dados.txt")
-    print("Texto extraído com sucesso. Primeiros 100 caracteres:")
+    texto_txt = ler_arquivo_txt("docs/manual_clinica.txt")
+    print("Texto extraído. Primeiros 100 caracteres:")
     print(texto_txt[:100] + "...\n")
     
     chunks = criar_chunks(texto_txt, 500)
@@ -62,20 +67,19 @@ def exercicio_1_e_2_ler_txt():
 
 def exercicio_1_e_2_ler_pdf():
     print("\n--- EXTRAÇÃO E CHUNKING DE PDF ---")
-    texto_pdf = ler_arquivo_pdf("docs/teste.pdf")
-    print("Texto extraído com sucesso. Primeiros 100 caracteres:")
+    texto_pdf = ler_arquivo_pdf("docs/artigo_saude.pdf")
+    print("Texto extraído. Primeiros 100 caracteres:")
     print(texto_pdf[:100] + "...\n")
     
     chunks = criar_chunks(texto_pdf, 500)
     print(f"Quantidade de chunks gerados: {len(chunks)}")
-    print("\nPrimeiro chunk:\n", chunks[0])
 
 def exercicio_3_gerar_embeddings():
     print("\n--- GERANDO EMBEDDINGS LOCAIS ---")
     frases_teste = [
-        "A inteligência artificial está revolucionando a tecnologia.",
-        "O aprendizado de máquina é um subcampo importante.",
-        "Bancos de dados relacionais usam tabelas."
+        "A anatomia humana é composta por diversos sistemas interligados.",
+        "O esmalte dentário é a substância mais dura do corpo humano.",
+        "A higienização correta previne a proliferação de bactérias."
     ]
     
     vetores = gerador_embeddings.encode(frases_teste)
@@ -87,11 +91,11 @@ def exercicio_3_gerar_embeddings():
 def exercicio_4_busca_semantica():
     print("\n--- BUSCA SEMÂNTICA EM MEMÓRIA ---")
     conhecimento = [
-        "O pão de queijo é originário de Minas Gerais.",
-        "A Terra gira em torno do Sol.",
-        "A capital da França é Paris.",
-        "O aprendizado supervisionado utiliza dados com respostas corretas.",
-        "Bancos de dados relacionais usam a linguagem SQL."
+        "O coração humano bate cerca de 100.000 vezes por dia.",
+        "Os polvos possuem três corações e o sangue deles é azul.",
+        "O fêmur é o osso mais longo e forte do corpo humano.",
+        "Algumas espécies de bambu crescem até 90 centímetros em um único dia.",
+        "A vitamina D é sintetizada pela pele através da exposição ao sol."
     ]
     
     vetores_conhecimento = gerador_embeddings.encode(conhecimento)
@@ -110,11 +114,11 @@ def exercicio_4_busca_semantica():
     print(f"-> {resultados[0][1]} (Score: {resultados[0][0]:.4f})")
 
 def exercicio_5_rag_simples():
-    print("\n--- RAG SIMPLES COM FATOS ---")
+    print("\n--- RAG SIMPLES COM FATOS BIOLÓGICOS ---")
     conhecimento = [
-        "Imortalidade biológica: Lagostas produzem uma enzima que repara suas células.",
-        "Tatus à prova de balas: A couraça dos tatus é altamente resistente.",
-        "Tempo dos roedores: Animais pequenos percebem o tempo em câmera lenta."
+        "Mel eterno: O mel é o único alimento que não estraga. Potes de 3.000 anos foram encontrados no Egito.",
+        "Energia cerebral: O cérebro humano gera cerca de 20 watts de eletricidade quando está acordado.",
+        "Impressões digitais: Assim como os humanos têm impressões digitais únicas, os cães têm focinhos únicos."
     ]
     
     vetores_conhecimento = gerador_embeddings.encode(conhecimento)
@@ -130,7 +134,7 @@ def exercicio_5_rag_simples():
     contexto_recuperado = resultados[0][1]
     
     prompt_sistema = f"""
-    Você é um assistente estrito. Responda à pergunta do usuário baseando-se EXCLUSIVAMENTE no contexto abaixo.
+    Você é um assistente estrito e acadêmico. Responda à pergunta do usuário baseando-se EXCLUSIVAMENTE no contexto abaixo.
     Se a resposta não estiver no contexto, diga: 'Não possuo essa informação.'
     
     CONTEXTO: {contexto_recuperado}
@@ -139,7 +143,7 @@ def exercicio_5_rag_simples():
     
     print("\nEnviando para a IA...")
     resposta_ia = ia_client.chat.completions.create(
-        model="llama-3.1-8b-instant",
+        model="llama-3.1-8b-instant", 
         messages=[{"role": "user", "content": prompt_sistema}]
     )
     
@@ -149,65 +153,57 @@ def exercicio_5_rag_simples():
 def exercicio_6_pipeline_completo():
     print("\n--- PIPELINE RAG COMPLETO COM CHROMADB ---")
     
-    # 1. Ingestão e Chunking
     print("1. Lendo arquivo e criando chunks...")
-    texto_base = ler_arquivo_txt("docs/regulamento_empresa_base_dados.txt")
+    texto_base = ler_arquivo_txt("docs/manual_clinica.txt")
     chunks_documento = criar_chunks(texto_base, 500)
     
-    # 2. Indexação com ChromaDB
     print("2. Gerando embeddings e salvando no Banco Vetorial...")
-    # O ChromaDB exige que os embeddings sejam listas comuns do Python, por isso o .tolist()
     vetores_documento = gerador_embeddings.encode(chunks_documento).tolist()
     
-    # Configurando o banco de dados na pasta local 'chroma_data'
     chroma_client = chromadb.PersistentClient(path="./chroma_data")
     colecao = chroma_client.get_or_create_collection(
-        name="regulamento_empresa",
+        name="manual_procedimentos",
         metadata={"hnsw:space": "cosine"}
     )
     
-    # Criando IDs únicos para cada chunk (doc_0, doc_1, etc.)
     ids = [f"chunk_{i}" for i in range(len(chunks_documento))]
     
-    # Salvando no banco
     colecao.upsert(
         ids=ids,
         documents=chunks_documento,
         embeddings=vetores_documento
     )
     
-    # 3. Busca (Retrieval)
-    pergunta_usuario = input("\nFaça uma pergunta sobre o regulamento da empresa: ")
+    pergunta_usuario = input("\nFaça uma pergunta sobre os procedimentos da clínica: ")
     vetor_pergunta = gerador_embeddings.encode([pergunta_usuario]).tolist()
     
-    # Buscando os 2 trechos mais parecidos direto no banco
+    # Trazendo os 4 melhores resultados para garantir o contexto completo
     resultados = colecao.query(
         query_embeddings=vetor_pergunta,
-        n_results=5 
+        n_results=4 
     )
     
     melhores_chunks = resultados["documents"][0]
     contexto_final = "\n\n---\n\n".join(melhores_chunks)
     
-    # 4. Geração (Generation)
     prompt_final = f"""
-    Atue como o RH e Suporte de TI da Alpha Soluções Tecnológicas.
-    Baseado EXCLUSIVAMENTE nas diretrizes abaixo, responda à dúvida do funcionário de forma clara e profissional.
+    Atue como o Coordenador Clínico da Clínica Odontológica Bem-Estar.
+    Baseado EXCLUSIVAMENTE no manual de procedimentos abaixo, responda à dúvida da equipe de forma clara e profissional.
     
-    DIRETRIZES DA EMPRESA (Contexto):
+    MANUAL (Contexto):
     {contexto_final}
     
-    DÚVIDA DO FUNCIONÁRIO:
+    DÚVIDA DA EQUIPE:
     {pergunta_usuario}
     """
     
-    print("\nGerando resposta baseada no regulamento (via LLM)...")
+    print("\nGerando resposta baseada no manual (via LLM)...")
     resposta_ia = ia_client.chat.completions.create(
         model="llama-3.1-8b-instant",
         messages=[{"role": "user", "content": prompt_final}]
     )
     
-    print("\nRESPOSTA DA EMPRESA:")
+    print("\nRESPOSTA DO COORDENADOR:")
     print(resposta_ia.choices[0].message.content)
 
 # =====================================================
@@ -217,7 +213,7 @@ def exercicio_6_pipeline_completo():
 if __name__ == "__main__":
     while True:
         print("\n" + "="*40)
-        print("  PROJETO DE RAG - EXERCÍCIOS PRÁTICOS  ")
+        print("  PROJETO DE RAG - APLICAÇÃO CLÍNICA  ")
         print("="*40)
         print("1 - Ler e Dividir Arquivo TXT")
         print("2 - Ler e Dividir Arquivo PDF")
